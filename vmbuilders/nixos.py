@@ -16,7 +16,15 @@ def download_iso_to(iso_fname):
     assert platform.system() == "Darwin"
     url = URLS[platform.processor()]
     print("Downloading ISO...")
-    urllib.request.urlretrieve(url, iso_fname)
+    percent = None
+    def report(chunk, size, total):
+        nonlocal percent
+        new_percent = int(chunk * size * 100 / total)
+        if new_percent != percent:
+            percent = new_percent
+            print(f"\r[{percent}% downloaded]", end='')
+    urllib.request.urlretrieve(url, iso_fname, reporthook=report)
+    print(f"\nISO downloaded to {iso_fname}")
 
 
 def mount_iso(iso_fname, mount_dir):
@@ -24,8 +32,8 @@ def mount_iso(iso_fname, mount_dir):
     result = subprocess.run(
         ["hdiutil", "attach", "-nomount", iso_fname], check=True, capture_output=True
     )
-    time.sleep(1) # Seems to help on fast M1 macs
     disk = result.stdout.decode().split("\n")[0].split()[0]
+    time.sleep(1) # Seems to help on fast M1 macs - mounting too soon doesn't work
     subprocess.run(["mount", "-t", "cd9660", disk, mount_dir], check=True)
     return disk
 
@@ -53,7 +61,7 @@ def main():
     except FileExistsError:
         pass
     iso_file = f"{work_dir}/nixos-install.iso"
-    # download_iso_to(iso_file)
+    download_iso_to(iso_file)
     mount_dir = tempfile.mkdtemp()
     disk = mount_iso(iso_file, mount_dir)
     copy_files(mount_dir, work_dir)
