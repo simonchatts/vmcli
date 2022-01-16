@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os, platform, shutil, subprocess, tempfile, urllib.request
+import os, platform, shutil, subprocess, tempfile, time, urllib.request
 
 # Where to find ISOs and checksums for Intel/ARM NixOS install CD images.
 # For Intel, there is a public managed latest iso. For ARM, we have to
@@ -24,6 +24,7 @@ def mount_iso(iso_fname, mount_dir):
     result = subprocess.run(
         ["hdiutil", "attach", "-nomount", iso_fname], check=True, capture_output=True
     )
+    time.sleep(1) # Seems to help on fast M1 macs
     disk = result.stdout.decode().split("\n")[0].split()[0]
     subprocess.run(["mount", "-t", "cd9660", disk, mount_dir], check=True)
     return disk
@@ -31,7 +32,11 @@ def mount_iso(iso_fname, mount_dir):
 
 def copy_files(mount_dir, work_dir):
     print("Copying kernel and initrd...")
-    shutil.copyfile(f"{mount_dir}/boot/bzImage", f"{work_dir}/kernel")
+    # Kernel might be bzImage or Image, depending on architecture
+    kernel_path = f"{mount_dir}/boot/bzImage"
+    if not os.path.exists(kernel_path):
+        kernel_path = f"{mount_dir}/boot/Image"
+    shutil.copyfile(kernel_path, f"{work_dir}/kernel")
     shutil.copyfile(f"{mount_dir}/boot/initrd", f"{work_dir}/initrd")
 
 
@@ -48,7 +53,7 @@ def main():
     except FileExistsError:
         pass
     iso_file = f"{work_dir}/nixos-install.iso"
-    download_iso_to(iso_file)
+    # download_iso_to(iso_file)
     mount_dir = tempfile.mkdtemp()
     disk = mount_iso(iso_file, mount_dir)
     copy_files(mount_dir, work_dir)
