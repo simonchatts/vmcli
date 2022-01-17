@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os, platform, shutil, subprocess, tempfile, time, urllib.request
+import os, platform, re, shutil, subprocess, tempfile, time, urllib.request
 
 # Where to find ISOs and checksums for Intel/ARM NixOS install CD images.
 # For Intel, there is a public managed latest iso. For ARM, we have to
@@ -46,6 +46,10 @@ def copy_files(mount_dir, work_dir):
         kernel_path = f"{mount_dir}/boot/Image"
     shutil.copyfile(kernel_path, f"{work_dir}/kernel")
     shutil.copyfile(f"{mount_dir}/boot/initrd", f"{work_dir}/initrd")
+    # Extract kernel command line arguments from grub
+    grub_cfg = open(f'{mount_dir}/EFI/boot/grub.cfg').read()
+    match = re.search(r'init=[\w/.-]* *root=LABEL=[\w/.-]*', grub_cfg)
+    return match.group(0)
 
 
 def unmount_iso(disk, mount_dir):
@@ -61,10 +65,11 @@ def main():
     except FileExistsError:
         pass
     iso_file = f"{work_dir}/nixos-install.iso"
-    download_iso_to(iso_file)
+    # download_iso_to(iso_file)
     mount_dir = tempfile.mkdtemp()
     disk = mount_iso(iso_file, mount_dir)
-    copy_files(mount_dir, work_dir)
+    cmdline = copy_files(mount_dir, work_dir)
+    print(cmdline)
     unmount_iso(disk, mount_dir)
     os.rmdir(mount_dir)
     print("Done")
