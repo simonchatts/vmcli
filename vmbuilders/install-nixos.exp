@@ -1,0 +1,100 @@
+#!/usr/bin/expect -f
+
+set fp [open "$env(HOME)/.ssh/id_rsa.pub" r]
+set ssh_key [string trim [read $fp]]
+close $fp
+
+proc expect_prompt {} {
+    expect -re {@nixos:~][#\$]} {
+        return
+    } timeout {
+        send_user "\rUh-oh, I can't handle this. Over to you..."
+        interact
+    } eof {
+        send_user "\rOops, VM seems to have exited..."
+        exit
+     }
+}
+
+proc cmd_result { command } {
+    send "$command\r"
+    expect "\r\n"
+    expect -re {([^\r\n]*)\r\n}
+    set retval $expect_out(1,string)
+    expect_prompt
+    return $retval
+}
+
+proc do { command } {
+    send "$command\r"
+    expect_prompt
+}
+
+spawn ./boot-installer
+set timeout 120
+expect_prompt
+set timeout 5
+do "sudo -i"
+do "mkdir ~root/.ssh"
+do "echo $ssh_key > ~root/.ssh/authorized_keys"
+do "(echo nameserver 1.1.1.1; echo nameserver 8.8.8.8) >> /etc/resolv.conf"
+set timeout 10
+do "yes | mkfs.ext4 -L nixos /dev/vda"
+do "mount /dev/vda /mnt"
+set timeout 5
+do "mkdir -p /mnt/etc/nixos"
+do "> /mnt/etc/nixos/configuration.nix echo '\r
+{ pkgs, ... }:
+{
+    # Basics
+    boot.loader.grub.enable = false;
+    fileSystems.\"/\" = {
+        device = \"/dev/disk/by-label/nixos\";
+        fsType = \"ext4\";
+        autoResize = true;
+    };
+
+    # Enable root login
+    services.openssh.enable = true;
+    services.openssh.permitRootLogin = \"yes\";
+    users.users.root = {
+        # @@@
+        # @@@ CHANGE ROOT PASSWORD AND DELETE THIS
+        # @@@             ↓↓↓↓↓↓↓↓↓↓
+        initialPassword = \"changeme\";
+        openssh.authorizedKeys.keys = \[ \"$ssh_key\" \];
+    };
+
+    # Very basic packages
+    environment.systemPackages = \[ pkgs.git pkgs.vim \];
+
+    # Enable flakes
+    nix.package = pkgs.nixUnstable;
+    nix.extraOptions = \"experimental-features = nix-command flakes\";
+}'"
+set timeout 1000
+do "nixos-install --no-root-password"
+set timeout 5
+while true {
+    set ip_address [cmd_result {ifconfig | perl -lne '/inet ((\d+)\.[\d.]+) / && $2 != 127 && print $1'}]
+    if { $ip_address != "" } break
+    send_user "Trying again to get IP address...\r\n"
+    sleep 1
+}
+set system [cmd_result "readlink -f /mnt/nix/var/nix/profiles/system"]
+set kernel [cmd_result "readlink /mnt${system}/kernel"]
+set initrd [cmd_result "readlink /mnt${system}/initrd"]
+send_user "\r\nCopying kernel and initrd to host...\r\n"
+proc scp { guest_path host_path ip_address } {
+    catch {
+        exec scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+                 root@$ip_address:$guest_path $host_path
+    }
+}
+exec rm -f kernel initrd
+scp /mnt${kernel} kernel $ip_address
+scp /mnt${initrd} initrd $ip_address
+exec chmod 444 kernel initrd
+send "poweroff\r"
+expect eof
+send_user "\r\nExpect script done\r\n"
