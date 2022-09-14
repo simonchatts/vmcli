@@ -8,7 +8,7 @@ A set of utilities to help you manage VMs with `Virtualization.framework`
 
 ### Prerequisites
 
-* macOS Big Sur (11+)
+* macOS Monterey (12+)
 * XCode.app installed
 
 ```
@@ -71,10 +71,7 @@ vmctl stop ubuntu
 
 ## Share folders with host
 
-Support for sharing folders with the host was added in macOS 12 (Monterey), and
-this is enabled if compiled on 12.0 or later.
-
-As of 12.1 the macOS support for this feature seems somewhat unreliable. If you
+As of 12.1 the macOS support for shared folders seems somewhat unreliable. If you
 want to try it anyway, use `--folder <host path>:<tag>` arguments. In the guest,
 mount these using `-t virtiofs <tag> <guest mountpoint>`.
 
@@ -112,7 +109,7 @@ OPTIONS:
                           Memory Size Suffix (default: MiB)
   -d, --disk <disk>       Disks to use
   --cdrom <cdrom>         CD-ROMs to use
-  -f, --folder <folder>   Folders to share (macOS 12.0 or later)
+  -f, --folder <folder>   Folders to share
   -n, --network <network> Networks to use. e.g. aa:bb:cc:dd:ee:ff@nat for a nat device, or ...@en0 for bridging to en0. Omit mac address for a
                           generated address. (default: nat)
   --balloon <balloon>     Enable / Disable Memory Ballooning (default: true)
