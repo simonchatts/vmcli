@@ -4,7 +4,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "dealer",
+    name: "vmcli",
     platforms: [
         .macOS(.v12),
     ],
@@ -15,9 +15,10 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.0.0"),
     ],
     targets: [
-        .target(name: "vmcli",
-                dependencies: [
-                    .product(name: "ArgumentParser", package: "swift-argument-parser")
-                ])
+        .executableTarget(
+            name: "vmcli",
+            dependencies: [
+                .product(name: "ArgumentParser", package: "swift-argument-parser")
+            ])
     ]
 )

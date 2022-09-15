@@ -20,7 +20,9 @@
           mkdir -p $out/bin
           cp vmcli/.build/release/vmcli $out/bin
           cp vmctl/vmctl.sh $out/bin/vmctl
-          chmod +x $out/bin/{vmcli,vmctl}
+          chmod +x $out/bin/vmctl
+        '';
+        fixupPhase = ''
           codesign -s - --entitlements vmcli/vmcli.entitlements $out/bin/vmcli
         '';
       };
